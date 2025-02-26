@@ -1,7 +1,9 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-const { open } = require("sqlite");
 const cors = require("cors");
+
+// Use dynamic import for sqlite to avoid "Cannot find module 'sqlite'" error
+const open = (...args) => import("sqlite").then(({ open }) => open(...args));
 
 const app = express();
 const PORT = process.env.PORT || 10000; // Use Render's PORT or default to 10000
@@ -10,14 +12,15 @@ app.use(express.json());
 app.use(cors());
 
 // Connect to SQLite database
-const dbPromise = open({
-    filename: "./database.sqlite",
-    driver: sqlite3.Database
-});
+let dbPromise;
 
 async function initializeDatabase() {
-    const db = await dbPromise;
-    await db.exec(`
+    dbPromise = await open({
+        filename: "./database.sqlite",
+        driver: sqlite3.Database
+    });
+
+    await dbPromise.exec(`
         CREATE TABLE IF NOT EXISTS logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             deviceId TEXT NOT NULL,
@@ -27,7 +30,6 @@ async function initializeDatabase() {
     `);
 }
 initializeDatabase();
-
 
 // API to log activity
 app.post("/logs", async (req, res) => {
