@@ -4,7 +4,7 @@
   "description": "A simple backend for logging activities at random times.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "npm install && node index.js",
     "postinstall": "npm install sqlite3"
   },
   "dependencies": {
