@@ -15,6 +15,20 @@ const dbPromise = open({
     driver: sqlite3.Database
 });
 
+async function initializeDatabase() {
+    const db = await dbPromise;
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deviceId TEXT NOT NULL,
+            activity TEXT NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+    `);
+}
+initializeDatabase();
+
+
 // API to log activity
 app.post("/logs", async (req, res) => {
     const { deviceId, activity, timestamp } = req.body;
