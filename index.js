@@ -129,11 +129,17 @@ async function initializeApp() {
     }
   });
 
-  app.get("/logs", authenticate, async (req, res) => {
+  app.get("/logs/user/:username", authenticate, async (req, res) => {
     try {
+      const { username } = req.params;
+      
+      if (username !== req.user.username && !req.user.is_admin) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
       const logs = await db.all(
-        "SELECT * FROM logs WHERE username = ?",
-        [req.user.username]
+        "SELECT id, username, activity, datetime(timestamp, 'localtime') as timestamp FROM logs WHERE username = ?",
+        [username]
       );
       res.json(logs);
     } catch (err) {
@@ -145,7 +151,9 @@ async function initializeApp() {
     try {
       if (!req.user.is_admin) return res.status(403).json({ error: "Forbidden" });
       
-      const logs = await db.all("SELECT * FROM logs");
+      const logs = await db.all(
+        "SELECT id, username, activity, datetime(timestamp, 'localtime') as timestamp FROM logs"
+      );
       res.json(logs);
     } catch (err) {
       res.status(500).json({ error: "Server error" });
