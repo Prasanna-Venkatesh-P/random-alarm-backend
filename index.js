@@ -30,7 +30,14 @@ async function initializeDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL,
       activity TEXT NOT NULL,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      timestamp TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      FOREIGN KEY(username) REFERENCES users(username)
+    );
+
+    CREATE TABLE IF NOT EXISTS quick_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      task TEXT NOT NULL,
       FOREIGN KEY(username) REFERENCES users(username)
     );
   `);
@@ -138,7 +145,7 @@ async function initializeApp() {
       }
 
       const logs = await db.all(
-        "SELECT id, username, activity, datetime(timestamp, 'localtime') as timestamp FROM logs WHERE username = ?",
+        "SELECT id, username, activity, strftime('%Y-%m-%dT%H:%M:%fZ', timestamp) as timestamp  FROM logs WHERE username = ?",
         [username]
       );
       res.json(logs);
@@ -155,6 +162,57 @@ async function initializeApp() {
         "SELECT id, username, activity, datetime(timestamp, 'localtime') as timestamp FROM logs"
       );
       res.json(logs);
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Get user's quick tasks
+  app.get("/quick-tasks", authenticate, async (req, res) => {
+    try {
+      const tasks = await db.all(
+        "SELECT * FROM quick_tasks WHERE username = ?",
+        [req.user.username]
+      );
+      res.json(tasks);
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Add a quick task
+  app.post("/quick-tasks", authenticate, async (req, res) => {
+    try {
+      const { task } = req.body;
+      if (!task) return res.status(400).json({ error: "Missing task" });
+
+      await db.run(
+        "INSERT INTO quick_tasks (username, task) VALUES (?, ?)",
+        [req.user.username, task]
+      );
+      res.json({ message: "Task added" });
+    } catch (err) {
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  // Delete a quick task
+  app.delete("/quick-tasks/:id", authenticate, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Verify ownership
+      const task = await db.get(
+        "SELECT username FROM quick_tasks WHERE id = ?",
+        [id]
+      );
+      
+      if (!task || task.username !== req.user.username) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      await db.run("DELETE FROM quick_tasks WHERE id = ?", [id]);
+      res.json({ message: "Task deleted" });
     } catch (err) {
       res.status(500).json({ error: "Server error" });
     }
